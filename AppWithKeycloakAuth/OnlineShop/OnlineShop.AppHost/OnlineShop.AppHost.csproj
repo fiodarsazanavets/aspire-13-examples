@@ -13,4 +13,10 @@
     <ProjectReference Include="..\OnlineShop.Web\OnlineShop.Web.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Update="Keycloak\import.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
 </Project>
