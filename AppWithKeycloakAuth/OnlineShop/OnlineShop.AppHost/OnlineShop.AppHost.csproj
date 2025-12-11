@@ -1,4 +1,4 @@
-<Project Sdk="Aspire.AppHost.Sdk/13.0.1">
+﻿<Project Sdk="Aspire.AppHost.Sdk/13.0.1">
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
@@ -9,9 +9,18 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Aspire.Hosting.Redis" Version="13.0.1" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\OnlineShop.ApiService\OnlineShop.ApiService.csproj" />
     <ProjectReference Include="..\OnlineShop.Web\OnlineShop.Web.csproj" />
+    <ProjectReference
+      Include="..\OnlineShop.MailDev.Hosting\OnlineShop.MailDev.Hosting.csproj"
+      IsAspireProjectResource="false" />
   </ItemGroup>
+
+  
 
   <ItemGroup>
     <None Update="Keycloak\import.json">
