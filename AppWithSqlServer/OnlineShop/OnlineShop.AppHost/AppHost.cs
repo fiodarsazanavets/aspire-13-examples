@@ -13,17 +13,22 @@ var idp = builder.AddKeycloakContainer(
 
 var cache = builder.AddRedis("cache");
 
+var sql = builder.AddSqlServer("sql").WithLifetime(ContainerLifetime.Persistent);
+var sqldb = sql.AddDatabase("sqldb");
+
 var apiService = builder.AddProject<Projects.OnlineShop_ApiService>("apiservice")
     .WithHttpHealthCheck("/health")
     .WithReference(idp)
-    .WaitFor(idp);
-    
+    .WaitFor(idp)
+    .WaitFor(sqldb)
+    .WithReference(sqldb);
 
 var webFrontend = builder
     .AddProject<Projects.OnlineShop_Web>("webfrontend")
     .WithExternalHttpEndpoints()
     .WithHttpHealthCheck("/health")
     .WithReference(apiService)
+    .WaitFor(apiService)
     .WithReference(idp, env: "Identity__ClientSecret")
     .WaitFor(idp)
     .WithReference(cache)

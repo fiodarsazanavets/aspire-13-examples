@@ -10,14 +10,13 @@
 
   <ItemGroup>
     <PackageReference Include="Aspire.Hosting.Redis" Version="13.0.1" />
+    <PackageReference Include="Aspire.Hosting.SqlServer" Version="13.1.0" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\OnlineShop.ApiService\OnlineShop.ApiService.csproj" />
     <ProjectReference Include="..\OnlineShop.Web\OnlineShop.Web.csproj" />
-    <ProjectReference
-      Include="..\OnlineShop.MailDev.Hosting\OnlineShop.MailDev.Hosting.csproj"
-      IsAspireProjectResource="false" />
+    <ProjectReference Include="..\OnlineShop.MailDev.Hosting\OnlineShop.MailDev.Hosting.csproj" IsAspireProjectResource="false" />
   </ItemGroup>
 
   

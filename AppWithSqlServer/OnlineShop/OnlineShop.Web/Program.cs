@@ -17,7 +17,7 @@ builder.Services.AddOutputCache();
 builder.Services.AddHttpClient(
     "OidcBackchannel", o => o.BaseAddress = new("http://idp"));
 
-builder.Services.AddHttpClient<WeatherApiClient>(client =>
+builder.Services.AddHttpClient<ProductsApiClient>(client =>
     {
         client.BaseAddress = new("https+http://apiservice");
     });
