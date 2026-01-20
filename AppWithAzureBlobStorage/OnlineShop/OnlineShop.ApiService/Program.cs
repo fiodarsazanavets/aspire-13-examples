@@ -1,3 +1,4 @@
+using Azure.Data.Tables;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
@@ -30,6 +31,8 @@ builder.Services.AddAuthentication(options =>
 
 builder.AddSqlServerClient("sqldb");
 builder.AddMongoDBClient("mongodb");
+builder.AddAzureTableServiceClient("tables");
+builder.AddAzureBlobServiceClient("blobs");
 
 var app = builder.Build();
 
@@ -190,6 +193,42 @@ using (var scope = app.Services.CreateScope())
 
         collection.InsertMany(productReviews);
     }
+
+    var tableServiceClient =
+        scope.ServiceProvider.GetRequiredService<TableServiceClient>();
+
+    var tableClient = tableServiceClient
+        .GetTableClient("ProductMetadata");
+
+    await tableClient.CreateIfNotExistsAsync();
+
+    var existing = tableClient
+        .Query<ProductMetadataEntity>(x => x.PartitionKey == "Product")
+        .Take(1)
+        .Any();
+
+    if (!existing)
+    {
+        var entities = new List<ProductMetadataEntity>();
+
+        foreach (var productId in Enumerable.Range(1, 10))
+        {
+            entities.Add(new ProductMetadataEntity
+            {
+                PartitionKey = "Product",
+                RowKey = productId.ToString(),
+
+                ReviewsEnabled = true,
+                Featured = productId % 2 == 0,
+                MaxReviewsPerUser = 1
+            });
+        }
+
+        foreach (var entity in entities)
+        {
+            await tableClient.AddEntityAsync(entity);
+        }
+    }
 }
 
 app.UseExceptionHandler();
@@ -246,6 +285,26 @@ app.MapGet("/product-reviews",
 
         return productReviews.ToArray();
     });
+
+app.MapGet("/product-metadata",
+   async (TableServiceClient tableServiceClient) =>
+   {
+       var tableClient = tableServiceClient
+           .GetTableClient("ProductMetadata");
+
+       var metadata = new List<ProductMetadataEntity>();
+
+       var entities = tableClient
+           .QueryAsync<ProductMetadataEntity>(
+               x => x.PartitionKey == "Product");
+
+       await foreach (var entity in entities)
+       {
+           metadata.Add(entity);
+       }
+
+       return metadata.ToArray();
+   });
 
 app.MapDefaultEndpoints();
 
