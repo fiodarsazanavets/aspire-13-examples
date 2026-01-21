@@ -19,12 +19,19 @@ var sqldb = sql.AddDatabase("sqldb");
 var mongo = builder.AddMongoDB("mongo").WithLifetime(ContainerLifetime.Persistent);
 var mongodb = mongo.AddDatabase("mongodb");
 
-var tables = builder.AddAzureStorage("storage")
-   .RunAsEmulator()
+var storage = builder.AddAzureStorage("storage")
+   .RunAsEmulator();
+
+var tables = storage
    .AddTables("tables");
+
+var blobs = storage
+   .AddBlobContainer("blobs");
 
 var apiService = builder.AddProject<Projects.OnlineShop_ApiService>("apiservice")
     .WithHttpHealthCheck("/health")
+    .WithReference(blobs)
+    .WaitFor(blobs)
     .WithReference(tables)
     .WaitFor(tables)
     .WithReference(mongodb)

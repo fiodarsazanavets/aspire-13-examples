@@ -1,4 +1,7 @@
 using Azure.Data.Tables;
+using Azure.Storage.Blobs;
+using CsvHelper;
+using CsvHelper.Configuration;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
@@ -6,6 +9,8 @@ using MongoDB.Driver;
 using OnlineShop.ApiService;
 using OnlineShop.ApiService.Model;
 using OnlineShop.ServiceDefaults.Dtos;
+using System.Globalization;
+using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -229,6 +234,52 @@ using (var scope = app.Services.CreateScope())
             await tableClient.AddEntityAsync(entity);
         }
     }
+
+    var blobServiceClient =
+        scope.ServiceProvider
+        .GetRequiredService<BlobServiceClient>();
+
+    var containerClient = blobServiceClient
+       .GetBlobContainerClient("products");
+
+    // Create the container if it doesn't exist
+    await containerClient.CreateIfNotExistsAsync();
+
+    var blobClient = containerClient
+       .GetBlobClient("products-specs.csv");
+
+    // Check if the blob already exists
+    if (await blobClient.ExistsAsync())
+    {
+        return;
+    }
+
+    var productSpecs = new List<ProductSpecCsvRow>();
+
+    foreach (var productId in Enumerable.Range(1, 10))
+    {
+        productSpecs.Add(new ProductSpecCsvRow
+        {
+            ProductId = productId,
+            ReviewsEnabled = true,
+            Featured = productId % 2 == 0,
+            MaxReviewsPerUser = 1,
+
+            Category = productId % 2 == 0 ? "Laptop" : "Peripheral",
+            WarrantyMonths = productId % 2 == 0 ? 24 : 12
+        });
+    }
+
+    using (var memoryStream = new MemoryStream())
+    using (var writer = new StreamWriter(memoryStream, Encoding.UTF8, leaveOpen: true))
+    using (var csv = new CsvWriter(writer, new CsvConfiguration(CultureInfo.InvariantCulture)))
+    {
+        csv.WriteRecords(productSpecs);
+        writer.Flush();
+
+        memoryStream.Position = 0;
+        await blobClient.UploadAsync(memoryStream, overwrite: true);
+    }
 }
 
 app.UseExceptionHandler();
@@ -305,6 +356,37 @@ app.MapGet("/product-metadata",
 
        return metadata.ToArray();
    });
+
+app.MapGet("/product-specs", async (
+   BlobServiceClient blobServiceClient) =>
+{
+    var containerClient = blobServiceClient
+        .GetBlobContainerClient("products");
+
+    var blobClient = containerClient
+        .GetBlobClient("product-specs.csv");
+
+    if (!await blobClient.ExistsAsync())
+    {
+        return Array.Empty<ProductSpecCsvRow>();
+    }
+
+    List<ProductSpecCsvRow> productSpecs;
+
+    // Download the CSV from the blob
+    var downloadResponse = await blobClient.DownloadAsync();
+
+    using (var stream = downloadResponse.Value.Content)
+    using (var reader = new StreamReader(stream))
+    using (var csv = new CsvReader(reader, CultureInfo.InvariantCulture))
+    {
+        productSpecs = csv
+            .GetRecords<ProductSpecCsvRow>()
+            .ToList();
+    }
+
+    return productSpecs.ToArray();
+});
 
 app.MapDefaultEndpoints();
 
