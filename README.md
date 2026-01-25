@@ -5,3 +5,20 @@ Example projects of .NET Aspire.
 The majority of these samples are used by the book [.NET Aspire Made Easy](https://www.manning.com/books/dotnet-aspire-made-easy/)
 
 ![](manning-aspire-cover.png)
+
+This repository follows the **golden thread** pattern, where we go from the initial Aspire starter project to building an e-commerce system by gradually adding various infrastructure components and business logic. The purpose of this approach is to demonstrate how each integration library for the Aspire infrastructure components works in a realistic scenario.
+
+## List of Examples
+
+1. [The starter application](/BaselineApp)
+2. [Docker/Keycloak integration](/AppWithKeycloakAuth)
+3. SQL-based database integrations
+   - [SQL Server integration](/AppWithSqlServer)
+   - [SQL Server with EF Core](/AppWithSqlServerEf)
+   - [Oracle DB integration](/AppWithOracleDb)
+   - [PostgreSQL integration](/AppWithPostgres)
+   - [PostgreSQL with EF Core](/AppWithPostgresEf/)
+4. [MongoDB integration](/AppWithMongoDb)
+5. Azure Storage integrations
+   - [Azure Table Storage](/AppWithAzureTableStorage)
+   - [Azure Blob Storage](/AppWithAzureBlobStorage)
