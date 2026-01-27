@@ -22,3 +22,4 @@ This repository follows the **golden thread** pattern, where we go from the init
 5. Azure Storage integrations
    - [Azure Table Storage](/AppWithAzureTableStorage)
    - [Azure Blob Storage](/AppWithAzureBlobStorage)
+6. [SignalR integration](/AppWithDeliveryTrackingSignalR)
