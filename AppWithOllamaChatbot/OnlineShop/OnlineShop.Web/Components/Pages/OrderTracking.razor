@@ -1,0 +1,47 @@
+﻿@page "/tracking"
+
+@using Microsoft.AspNetCore.SignalR.Client
+@using OnlineShop.Web.Extensions
+
+@inject IJSRuntime JSRuntime
+@inject IHttpMessageHandlerFactory ClientFactory
+
+<div id="map" style="width: 100%; height: 400px;"></div>
+
+@code {
+    private HubConnection? hubConnection;
+
+    protected override async Task OnInitializedAsync()
+    {
+        hubConnection = new HubConnectionBuilder()
+            .WithUrl("https://apiservice/locationHub",
+                ClientFactory)
+            .Build();
+    }
+
+    protected override async Task
+        OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await JSRuntime
+                .InvokeVoidAsync("initializeMap");
+
+            hubConnection?.On<double, double>(
+                "ReceiveLocationUpdate",
+                async (lat, lon) =>
+                {
+                    await InvokeAsync(async () =>
+                    {
+                        await JSRuntime.InvokeVoidAsync(
+                            "addMarker",
+                            lat,
+                            lon);
+                        StateHasChanged();
+                    });
+                });
+
+            await hubConnection?.StartAsync();
+        }
+    }
+}
