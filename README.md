@@ -24,3 +24,4 @@ This repository follows the **golden thread** pattern, where we go from the init
    - [Azure Blob Storage](/AppWithAzureBlobStorage)
 6. [SignalR integration](/AppWithDeliveryTrackingSignalR)
 7. [Semantic Kernel and Ollama](/AppWithOllamaChatbot)
+8. [Integration tests](/AppWithTests)

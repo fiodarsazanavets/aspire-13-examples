@@ -1,0 +1,8 @@
+<Solution>
+  <Project Path="OnlineShop.ApiService/OnlineShop.ApiService.csproj" />
+  <Project Path="OnlineShop.AppHost/OnlineShop.AppHost.csproj" />
+  <Project Path="OnlineShop.MailDev.Hosting/OnlineShop.MailDev.Hosting.csproj" Id="bcd7a762-a5a4-4043-9990-a00cca6b4a91" />
+  <Project Path="OnlineShop.ServiceDefaults/OnlineShop.ServiceDefaults.csproj" />
+  <Project Path="OnlineShop.Tests/OnlineShop.Tests.csproj" Id="5df74ce0-4959-4b84-a062-e97ef8468d4b" />
+  <Project Path="OnlineShop.Web/OnlineShop.Web.csproj" />
+</Solution>
