@@ -1,5 +1,6 @@
 using Azure.Data.Tables;
 using Azure.Storage.Blobs;
+using Azure.Storage.Queues;
 using CsvHelper;
 using CsvHelper.Configuration;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -9,12 +10,10 @@ using MongoDB.Driver;
 using OnlineShop.ApiService;
 using OnlineShop.ApiService.Model;
 using OnlineShop.ServiceDefaults.Dtos;
-using RabbitMQ.Client;
 using System.Data;
 using System.Globalization;
 using System.Text;
 using System.Text.Json;
-using static MongoDB.Driver.WriteConcern;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -44,7 +43,7 @@ builder.AddSqlServerClient("sqldb");
 builder.AddMongoDBClient("mongodb");
 builder.AddAzureTableServiceClient("tables");
 builder.AddAzureBlobServiceClient("blobs");
-builder.AddRabbitMQClient("rabbitmq");
+builder.AddAzureQueueServiceClient("queues");
 
 builder.Services.AddSingleton<LocationUpdater>();
 builder.Services.AddHostedService(
@@ -447,7 +446,7 @@ app.MapGet("/product-specs", async (
 app.MapPost("/api/orders", async (
     Dictionary<int, int> basket,
     [FromServices] SqlConnection dbConnection,
-    [FromServices] IConnection rabbitConnection) =>
+    [FromServices] QueueServiceClient queueServiceClient) =>
 {
     if (basket is null || basket.Count == 0)
         return Results.BadRequest("Basket is empty.");
@@ -533,39 +532,14 @@ app.MapPost("/api/orders", async (
         return Results.Problem($"Order creation failed: {ex.Message}");
     }
 
-    try
-    {
-        await using var channel = await rabbitConnection.CreateChannelAsync();
+    var queueClient = queueServiceClient
+       .GetQueueClient("orders.created");
+    queueClient.CreateIfNotExists();
 
-        const string queueName = "orders.created";
+    var message = JsonSerializer.Serialize(new { orderId });
 
-        await channel.QueueDeclareAsync(
-            queue: queueName,
-            durable: true,
-            exclusive: false,
-            autoDelete: false,
-            arguments: null);
-
-        var message = JsonSerializer.Serialize(new { orderId });
-        var body = Encoding.UTF8.GetBytes(message);
-
-        var props = new BasicProperties
-        {
-            Persistent = true
-        };
-
-        await channel.BasicPublishAsync(
-            exchange: "",
-            routingKey: queueName,
-            mandatory: false,
-            basicProperties: props,
-            body: body);
-    }
-    catch (Exception ex)
-    {
-        return Results.Problem(
-            $"Order was created (Id={orderId}) but RabbitMQ publish failed: {ex.Message}");
-    }
+    queueClient.SendMessage(
+       JsonSerializer.Serialize(message));
 
     return Results.Created($"/api/orders/{orderId}", new
     {
