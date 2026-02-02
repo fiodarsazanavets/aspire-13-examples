@@ -6,10 +6,12 @@ using CsvHelper.Configuration;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
+using Microsoft.Extensions.Caching.Distributed;
 using MongoDB.Driver;
 using OnlineShop.ApiService;
 using OnlineShop.ApiService.Model;
 using OnlineShop.ServiceDefaults.Dtos;
+using StackExchange.Redis;
 using System.Data;
 using System.Globalization;
 using System.Text;
@@ -44,6 +46,7 @@ builder.AddMongoDBClient("mongodb");
 builder.AddAzureTableServiceClient("tables");
 builder.AddAzureBlobServiceClient("blobs");
 builder.AddAzureQueueServiceClient("queues");
+builder.AddRedisDistributedCache(connectionName: "cache");
 
 builder.Services.AddSingleton<LocationUpdater>();
 builder.Services.AddHostedService(
@@ -345,34 +348,51 @@ if (app.Environment.IsDevelopment())
 app.MapGet("/", () => "API service is running.");
 
 app.MapGet("/products",
-    ([FromServices] SqlConnection connection) =>
+    async ([FromServices] SqlConnection connection,
+           [FromServices] IDistributedCache cache) =>
     {
-        connection.Open();
+        const string cacheKey = "Products";
 
-        var command = new SqlCommand(@"
+        var cached = await cache.GetStringAsync(cacheKey);
+        if (cached is not null)
+        {
+            var cachedProducts =
+                JsonSerializer.Deserialize<ProductDto[]>(cached);
+
+            return Results.Ok(cachedProducts);
+        }
+
+        await connection.OpenAsync();
+
+        await using var command = new SqlCommand(@"
             USE Shop;
-            SELECT
-                Id,
-                Title,
-                Summary,
-                Price
-            FROM Products", connection);
+            SELECT Id, Title, Summary, Price
+            FROM Products;", connection);
+
         var products = new List<ProductDto>();
 
-        using (var reader = command.ExecuteReader())
+        await using var reader = await command.ExecuteReaderAsync();
+        while (await reader.ReadAsync())
         {
-            while (reader.Read())
-            {
-                products.Add(new ProductDto(
-                    Id: reader.GetInt32(0),
-                    Title: reader.GetString(1),
-                    Summary: reader.GetString(2),
-                    Price: reader.GetDecimal(3)
-                ));
-            }
-
-            return products.ToArray();
+            products.Add(new ProductDto(
+                Id: reader.GetInt32(0),
+                Title: reader.GetString(1),
+                Summary: reader.GetString(2),
+                Price: reader.GetDecimal(3)
+            ));
         }
+
+        var serializedProducts = JsonSerializer.Serialize(products.ToArray());
+
+        await cache.SetStringAsync(
+            cacheKey,
+            serializedProducts,
+            new DistributedCacheEntryOptions
+            {
+                AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(5)
+            });
+
+        return Results.Ok(products.ToArray());
     });
 
 app.MapGet("/product-reviews",
@@ -446,7 +466,9 @@ app.MapGet("/product-specs", async (
 app.MapPost("/api/orders", async (
     Dictionary<int, int> basket,
     [FromServices] SqlConnection dbConnection,
-    [FromServices] QueueServiceClient queueServiceClient) =>
+    [FromServices] QueueServiceClient queueServiceClient,
+    [FromServices] IDistributedCache cache,
+    [FromServices] IConnectionMultiplexer redis) =>
 {
     if (basket is null || basket.Count == 0)
         return Results.BadRequest("Basket is empty.");
@@ -457,6 +479,27 @@ app.MapPost("/api/orders", async (
 
     if (items.Count == 0)
         return Results.BadRequest("Basket contains no items with quantity > 0.");
+
+    IDatabase db = redis.GetDatabase();
+
+    List<string> lockKeys = [];
+
+    foreach (var productId in items.Keys)
+    {
+        string lockKey = $"product_lock_{productId}";
+
+        bool lockAcquired = await db.LockTakeAsync(
+           lockKey,
+           Environment.MachineName,
+           TimeSpan.FromSeconds(10));
+
+        if (!lockAcquired)
+        {
+            return Results.StatusCode(423);
+        }
+
+        lockKeys.Add($"product_lock_{productId}");
+    }
 
     if (dbConnection.State != ConnectionState.Open)
         await dbConnection.OpenAsync();
@@ -530,6 +573,15 @@ app.MapPost("/api/orders", async (
     {
         await tx.RollbackAsync();
         return Results.Problem($"Order creation failed: {ex.Message}");
+    }
+    finally
+    {
+        foreach (var lockKey in lockKeys)
+        {
+            await db.LockReleaseAsync(
+               lockKey,
+               Environment.MachineName);
+        }
     }
 
     var queueClient = queueServiceClient
