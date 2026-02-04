@@ -1,0 +1,109 @@
+using Microsoft.Extensions.Hosting;
+using OnlineShop.AppHost;
+using OnlineShop.AppHost.Extensions;
+using OnlineShop.MailDev.Hosting;
+
+var builder = DistributedApplication.CreateBuilder(args);
+
+var maildev = builder.AddMailDev("maildev");
+
+var idp = builder.AddKeycloakContainer(
+    "idp", tag: "23.0")
+    .ImportRealms("Keycloak")
+    .WithExternalHttpEndpoints();
+
+var cache = builder.AddRedis("cache").WithRedisCommander().WithClearCacheCommand();
+
+var mongo = builder.AddMongoDB("mongo").WithLifetime(ContainerLifetime.Persistent);
+var mongodb = mongo.AddDatabase("mongodb");
+
+var storage = builder.AddAzureStorage("storage")
+   .RunAsEmulator();
+
+var tables = storage
+   .AddTables("tables");
+
+var blobs = storage
+   .AddBlobs("blobs");
+
+var queues = storage
+   .AddQueues("queues");
+
+var ollama = builder.AddOllama("ollama")
+    .WithLifetime(ContainerLifetime.Persistent)
+    .WithDataVolume()
+    .WithOpenWebUI();
+
+var phi35 = ollama.AddModel("phi35", "phi3.5");
+
+var apiService = builder.AddProject<Projects.OnlineShop_ApiService>("apiservice")
+    .WithHttpHealthCheck("/health")
+    .WithReplicas(3)
+    .WithReference(cache)
+    .WaitFor(cache)
+    .WithReference(queues)
+    .WaitFor(queues)
+    .WithReference(blobs)
+    .WaitFor(blobs)
+    .WithReference(tables)
+    .WaitFor(tables)
+    .WithReference(mongodb)
+    .WaitFor(mongodb)
+    .WithReference(idp)
+    .WaitFor(idp);
+
+if (builder.ExecutionContext.IsRunMode)
+{
+    var sql = builder.AddSqlServer("sql").WithLifetime(ContainerLifetime.Persistent);
+    var sqldb = sql.AddDatabase("sqldb");
+
+    apiService
+        .WaitFor(sqldb)
+        .WithReference(sqldb);
+}
+else
+{
+    var sql = builder.AddAzureSqlServer("sql");
+    var sqldb = sql.AddDatabase("sqldb");
+
+    apiService
+        .WaitFor(sqldb)
+        .WithReference(sqldb);
+}
+
+var webFrontend = builder
+    .AddProject<Projects.OnlineShop_Web>("webfrontend")
+    .WithExternalHttpEndpoints()
+    .WithHttpHealthCheck("/health")
+    .WithReference(phi35)
+    .WithReference(apiService)
+    .WaitFor(apiService)
+    .WithReference(idp, env: "Identity__ClientSecret")
+    .WaitFor(idp)
+    .WithReference(cache)
+    .WaitFor(cache);
+
+if (builder.ExecutionContext.IsRunMode)
+{
+    var webAppHttp = webFrontend.GetEndpoint("http");
+    var webAppHttps = webFrontend.GetEndpoint("https");
+
+    idp.WithEnvironment("WEBAPP_HTTP", () =>
+        $"{webAppHttp.Scheme}://{webAppHttp.Host}:{webAppHttp.Port}");
+
+    if (webAppHttps.Exists)
+    {
+        idp.WithEnvironment("WEBAPP_HTTP_CONTAINERHOST",
+            webAppHttps);
+        idp.WithEnvironment("WEBAPP_HTTPS", () =>
+            $"{webAppHttps.Scheme}://{webAppHttps.Host}:{webAppHttps.Port}");
+    }
+    else
+    {
+        idp.WithEnvironment("WEBAPP_HTTP_CONTAINERHOST",
+            webAppHttp);
+    }
+}
+
+
+builder.Build().Run();

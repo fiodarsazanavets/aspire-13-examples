@@ -1,0 +1,7 @@
+operations:
+- type: FileShareUpload
+  description: Upload files for idp
+  config:
+    storageAccount: ${AZURE_VOLUMES_STORAGE_ACCOUNT}
+    fileShareName: ${SERVICE_IDP_FILE_SHARE_BM0_NAME}
+    path: C:\Repos\aspire-13-examples\AppWithInfrastructure\OnlineShop\OnlineShop.AppHost\Keycloak

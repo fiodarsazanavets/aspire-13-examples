@@ -29,3 +29,4 @@ This repository follows the **golden thread** pattern, where we go from the init
 9. [RabbitMQ integration](/AppWithRabbitMq)
 10. [Redis caching and locking](/AppWithRedisCacheAndLock)
 11. [Full authentication integration](/AppWithAuthentication)
+12. [Scale-out and deployment scripts](/AppWithInfrastructure)

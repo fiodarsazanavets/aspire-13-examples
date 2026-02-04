@@ -1,0 +1,24 @@
+{
+  "projectPath": ".",
+  "outputPath": "aspirate-output",
+  "containerImageTags": [
+    "latest"
+  ],
+  "containerBuilder": "docker",
+  "outputFormat": "kustomize",
+  "privateRegistryEmail": "aspir8@aka.ms",
+  "includeDashboard": true,
+  "secrets": {
+    "salt": "ghSmQrXQCnqlsFka",
+    "hash": "NKO3okzJ/ACklIpZ2XlQRSVmEX\u002BUC0NXhdzTV6q5taQ=",
+    "secrets": {
+      "cache-password": {
+        "value": "ghSmQrXQCnqlsFkaXXPbeupBZdXjkEEysTW\u002BvqL8ldolTn0Ocd5qrqAbXH3BR0Gu9iU="
+      },
+      "mongo-password": {
+        "value": "ghSmQrXQCnqlsFkaDGo/r1nuvCiYeFpjL7ueGeLEuYRxe344WeFWlr09K0/8fFSd6i0="
+      }
+    }
+  },
+  "processAllComponents": true
+}

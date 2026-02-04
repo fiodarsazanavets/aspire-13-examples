@@ -1,0 +1,218 @@
+﻿@page "/"
+@using Microsoft.AspNetCore.Components.Authorization
+@using OnlineShop.ServiceDefaults.Dtos
+@attribute [StreamRendering(true)]
+@attribute [OutputCache(Duration = 5)]
+
+@inject ProductsApiClient ProductsApi
+@inject NavigationManager Nav
+
+<PageTitle>Products</PageTitle>
+
+<h1>Products</h1>
+
+@if (products == null)
+{
+    <p><em>Loading...</em></p>
+}
+else
+{
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Price (USD)</th>
+                <th>Summary</th>
+                <th style="width: 280px;">Basket</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var product in products)
+            {
+                var qty = GetQuantity(product.Id);
+
+                <tr>
+                    <td>@product.Title</td>
+                    <td>@product.Price</td>
+                    <td>@product.Summary</td>
+                    <td>
+                        <AuthorizeView>
+                            <Authorized>
+                                <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+                                    <button class="btn btn-sm btn-primary"
+                                            @onclick="() => AddToBasket(product.Id)">
+                                        Add to Basket
+                                    </button>
+
+                                    <button class="btn btn-sm btn-outline-danger"
+                                            @onclick="() => RemoveFromBasket(product.Id)"
+                                            disabled="@(qty == 0)">
+                                        Remove From Basket
+                                    </button>
+
+                                    <span class="btn btn-sm btn-secondary disabled"
+                                          aria-disabled="true"
+                                          style="pointer-events:none;">
+                                        Quantity ordered: @qty
+                                    </span>
+                                </div>
+                            </Authorized>
+
+                            <NotAuthorized>
+                                <span class="text-muted">
+                                    Sign in to order
+                                </span>
+                            </NotAuthorized>
+                        </AuthorizeView>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+
+    <AuthorizeView>
+        <Authorized>
+            @if (TotalQuantity > 0)
+            {
+                <div class="mt-3 p-3 border rounded" style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;">
+                    <div>
+                        <strong>Total price:</strong> @TotalPrice.ToString("0.00") USD
+                        <span class="text-muted">(@TotalQuantity item@(TotalQuantity == 1 ? "" : "s"))</span>
+                    </div>
+
+                    <button class="btn btn-success"
+                            @onclick="PlaceOrderAsync"
+                            disabled="@isPlacingOrder">
+                        @(isPlacingOrder ? "Placing..." : "Place order")
+                    </button>
+                </div>
+
+                @if (!string.IsNullOrWhiteSpace(orderStatus))
+                {
+                    <p class="mt-2">@orderStatus</p>
+                }
+            }
+        </Authorized>
+    </AuthorizeView>
+
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h1 class="m-0">Products</h1>
+
+        <AuthorizeView>
+            <Authorized>
+                <form method="post"
+                      action="@($"/logout?returnUrl={Uri.EscapeDataString(Nav.Uri)}")">
+                    <button type="submit" class="btn btn-outline-secondary btn-sm">
+                        Sign out
+                    </button>
+                </form>
+            </Authorized>
+            <NotAuthorized>
+                <a class="btn btn-outline-primary btn-sm"
+                   href="@($"/login?returnUrl={Uri.EscapeDataString(Nav.Uri)}")">
+                    Sign in
+                </a>
+            </NotAuthorized>
+        </AuthorizeView>
+    </div>
+
+}
+
+@code {
+    private ProductDto[]? products;
+
+    private readonly Dictionary<int, int> basket = new();
+
+    private bool isPlacingOrder;
+    private string? orderStatus;
+
+    protected override async Task OnInitializedAsync()
+    {
+        products = await ProductsApi.GetProductsAsync();
+    }
+
+    private int GetQuantity(int productId)
+        => basket.TryGetValue(productId, out var qty) ? qty : 0;
+
+    private void AddToBasket(int productId)
+    {
+        basket.TryGetValue(productId, out var qty);
+        basket[productId] = qty + 1;
+        orderStatus = null;
+        StateHasChanged();
+    }
+
+    private void RemoveFromBasket(int productId)
+    {
+        if (!basket.TryGetValue(productId, out var qty) || qty <= 0)
+            return;
+
+        qty--;
+
+        if (qty <= 0)
+            basket.Remove(productId);
+        else
+            basket[productId] = qty;
+
+        orderStatus = null;
+        StateHasChanged();
+    }
+
+    private int TotalQuantity => basket.Values.Sum();
+
+    private decimal TotalPrice
+    {
+        get
+        {
+            if (products == null || basket.Count == 0)
+                return 0m;
+
+            decimal total = 0m;
+
+            foreach (var (productId, qty) in basket)
+            {
+                var product = products.FirstOrDefault(p => p.Id == productId);
+                if (product is null) continue;
+
+                total += (decimal)product.Price * qty;
+            }
+
+            return total;
+        }
+    }
+
+    private async Task PlaceOrderAsync()
+    {
+        if (TotalQuantity <= 0)
+            return;
+
+        isPlacingOrder = true;
+        orderStatus = null;
+
+        try
+        {
+            var payload = new Dictionary<int, int>(basket);
+
+            var response = await ProductsApi.MakeOrder(payload);
+
+            if (response.IsSuccessStatusCode)
+            {
+                orderStatus = "Order placed successfully.";
+                basket.Clear();
+            }
+            else
+            {
+                orderStatus = $"Failed to place order. Status: {(int)response.StatusCode} {response.ReasonPhrase}";
+            }
+        }
+        catch (Exception ex)
+        {
+            orderStatus = $"Failed to place order: {ex.Message}";
+        }
+        finally
+        {
+            isPlacingOrder = false;
+            StateHasChanged();
+        }
+    }
+}

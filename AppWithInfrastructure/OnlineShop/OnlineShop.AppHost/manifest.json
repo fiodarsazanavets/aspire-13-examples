@@ -1,0 +1,299 @@
+{
+  "$schema": "https://json.schemastore.org/aspire-8.0.json",
+  "resources": {
+    "maildev": {
+      "type": "container.v0",
+      "connectionString": "smtp://{maildev.bindings.smtp.host}:{maildev.bindings.smtp.port}",
+      "image": "docker.io/maildev/maildev:2.1.0",
+      "bindings": {
+        "http": {
+          "scheme": "http",
+          "protocol": "tcp",
+          "transport": "http",
+          "targetPort": 1080
+        },
+        "smtp": {
+          "scheme": "tcp",
+          "protocol": "tcp",
+          "transport": "tcp",
+          "targetPort": 1025
+        }
+      }
+    },
+    "idp": {
+      "type": "container.v0",
+      "image": "quay.io/keycloak/keycloak:23.0",
+      "args": [
+        "start",
+        "--import-realm"
+      ],
+      "bindMounts": [
+        {
+          "source": "Keycloak",
+          "target": "/opt/keycloak/data/import",
+          "readOnly": false
+        }
+      ],
+      "env": {
+        "KEYCLOAK_ADMIN": "admin",
+        "KEYCLOAK_ADMIN_PASSWORD": "admin",
+        "WEBAPP_CLIENT_SECRET": "some_secret"
+      },
+      "bindings": {
+        "http": {
+          "scheme": "http",
+          "protocol": "tcp",
+          "transport": "http",
+          "targetPort": 8080,
+          "external": true
+        }
+      }
+    },
+    "cache": {
+      "type": "container.v0",
+      "connectionString": "{cache.bindings.tcp.host}:{cache.bindings.tcp.port},password={cache-password.value}",
+      "image": "docker.io/library/redis:8.2",
+      "entrypoint": "/bin/sh",
+      "args": [
+        "-c",
+        "redis-server --requirepass $REDIS_PASSWORD"
+      ],
+      "env": {
+        "REDIS_PASSWORD": "{cache-password.value}"
+      },
+      "bindings": {
+        "tcp": {
+          "scheme": "tcp",
+          "protocol": "tcp",
+          "transport": "tcp",
+          "targetPort": 6379
+        }
+      }
+    },
+    "mongo": {
+      "type": "container.v0",
+      "connectionString": "mongodb://admin:{mongo-password-uri-encoded.value}@{mongo.bindings.tcp.host}:{mongo.bindings.tcp.port}?authSource=admin\u0026authMechanism=SCRAM-SHA-256",
+      "image": "docker.io/library/mongo:8.2",
+      "env": {
+        "MONGO_INITDB_ROOT_USERNAME": "admin",
+        "MONGO_INITDB_ROOT_PASSWORD": "{mongo-password.value}"
+      },
+      "bindings": {
+        "tcp": {
+          "scheme": "tcp",
+          "protocol": "tcp",
+          "transport": "tcp",
+          "targetPort": 27017
+        }
+      }
+    },
+    "mongodb": {
+      "type": "value.v0",
+      "connectionString": "mongodb://admin:{mongo-password-uri-encoded.value}@{mongo.bindings.tcp.host}:{mongo.bindings.tcp.port}/mongodb?authSource=admin\u0026authMechanism=SCRAM-SHA-256"
+    },
+    "storage": {
+      "type": "azure.bicep.v0",
+      "path": "storage.module.bicep"
+    },
+    "tables": {
+      "type": "value.v0",
+      "connectionString": "{storage.outputs.tableEndpoint}"
+    },
+    "blobs": {
+      "type": "value.v0",
+      "connectionString": "{storage.outputs.blobEndpoint}"
+    },
+    "queues": {
+      "type": "value.v0",
+      "connectionString": "{storage.outputs.queueEndpoint}"
+    },
+    "ollama": {
+      "type": "container.v0",
+      "connectionString": "Endpoint={ollama.bindings.http.scheme}://{ollama.bindings.http.host}:{ollama.bindings.http.port}",
+      "image": "docker.io/ollama/ollama:0.13.0",
+      "volumes": [
+        {
+          "name": "onlineshop.apphost-a2d2d5fe79-ollama-ollama",
+          "target": "/root/.ollama",
+          "readOnly": false
+        }
+      ],
+      "bindings": {
+        "http": {
+          "scheme": "http",
+          "protocol": "tcp",
+          "transport": "http",
+          "targetPort": 11434
+        }
+      }
+    },
+    "phi35": {
+      "type": "value.v0",
+      "connectionString": "{ollama.connectionString};Model=phi3.5"
+    },
+    "apiservice": {
+      "type": "project.v0",
+      "path": "../OnlineShop.ApiService/OnlineShop.ApiService.csproj",
+      "env": {
+        "OTEL_DOTNET_EXPERIMENTAL_OTLP_EMIT_EXCEPTION_LOG_ATTRIBUTES": "true",
+        "OTEL_DOTNET_EXPERIMENTAL_OTLP_EMIT_EVENT_LOG_ATTRIBUTES": "true",
+        "OTEL_DOTNET_EXPERIMENTAL_OTLP_RETRY": "in_memory",
+        "ASPNETCORE_FORWARDEDHEADERS_ENABLED": "true",
+        "HTTP_PORTS": "{apiservice.bindings.http.targetPort}",
+        "ConnectionStrings__cache": "{cache.connectionString}",
+        "CACHE_HOST": "{cache.bindings.tcp.host}",
+        "CACHE_PORT": "{cache.bindings.tcp.port}",
+        "CACHE_PASSWORD": "{cache-password.value}",
+        "CACHE_URI": "redis://:{cache-password-uri-encoded.value}@{cache.bindings.tcp.host}:{cache.bindings.tcp.port}",
+        "ConnectionStrings__queues": "{queues.connectionString}",
+        "QUEUES_URI": "{storage.outputs.queueEndpoint}",
+        "ConnectionStrings__blobs": "{blobs.connectionString}",
+        "BLOBS_URI": "{storage.outputs.blobEndpoint}",
+        "ConnectionStrings__tables": "{tables.connectionString}",
+        "TABLES_URI": "{storage.outputs.tableEndpoint}",
+        "ConnectionStrings__mongodb": "{mongodb.connectionString}",
+        "MONGODB_HOST": "{mongo.bindings.tcp.host}",
+        "MONGODB_PORT": "{mongo.bindings.tcp.port}",
+        "MONGODB_USERNAME": "admin",
+        "MONGODB_PASSWORD": "{mongo-password.value}",
+        "MONGODB_AUTHENTICATIONDATABASE": "admin",
+        "MONGODB_AUTHENTICATIONMECHANISM": "SCRAM-SHA-256",
+        "MONGODB_URI": "mongodb://admin:{mongo-password-uri-encoded.value}@{mongo.bindings.tcp.host}:{mongo.bindings.tcp.port}/mongodb?authSource=admin\u0026authMechanism=SCRAM-SHA-256",
+        "MONGODB_DATABASENAME": "mongodb",
+        "IDP_HTTP": "{idp.bindings.http.url}",
+        "services__idp__http__0": "{idp.bindings.http.url}",
+        "ConnectionStrings__sqldb": "{sqldb.connectionString}",
+        "SQLDB_HOST": "{sql.outputs.sqlServerFqdn}",
+        "SQLDB_PORT": "1433",
+        "SQLDB_URI": "mssql://{sql.outputs.sqlServerFqdn}:1433/sqldb",
+        "SQLDB_JDBCCONNECTIONSTRING": "jdbc:sqlserver://{sql.outputs.sqlServerFqdn}:1433;database=sqldb;encrypt=true;trustServerCertificate=false",
+        "SQLDB_DATABASENAME": "sqldb"
+      },
+      "bindings": {
+        "http": {
+          "scheme": "http",
+          "protocol": "tcp",
+          "transport": "http"
+        },
+        "https": {
+          "scheme": "https",
+          "protocol": "tcp",
+          "transport": "http"
+        }
+      }
+    },
+    "sql": {
+      "type": "azure.bicep.v0",
+      "connectionString": "Server=tcp:{sql.outputs.sqlServerFqdn},1433;Encrypt=True;Authentication=\u0022Active Directory Default\u0022",
+      "path": "sql.module.bicep"
+    },
+    "sqldb": {
+      "type": "value.v0",
+      "connectionString": "{sql.connectionString};Database=sqldb"
+    },
+    "webfrontend": {
+      "type": "project.v0",
+      "path": "../OnlineShop.Web/OnlineShop.Web.csproj",
+      "env": {
+        "OTEL_DOTNET_EXPERIMENTAL_OTLP_EMIT_EXCEPTION_LOG_ATTRIBUTES": "true",
+        "OTEL_DOTNET_EXPERIMENTAL_OTLP_EMIT_EVENT_LOG_ATTRIBUTES": "true",
+        "OTEL_DOTNET_EXPERIMENTAL_OTLP_RETRY": "in_memory",
+        "ASPNETCORE_FORWARDEDHEADERS_ENABLED": "true",
+        "HTTP_PORTS": "{webfrontend.bindings.http.targetPort}",
+        "ConnectionStrings__phi35": "{phi35.connectionString}",
+        "PHI35_HOST": "{ollama.bindings.http.host}",
+        "PHI35_PORT": "{ollama.bindings.http.port}",
+        "PHI35_URI": "{ollama.bindings.http.scheme}://{ollama.bindings.http.host}:{ollama.bindings.http.port}",
+        "PHI35_MODEL": "phi3.5",
+        "APISERVICE_HTTP": "{apiservice.bindings.http.url}",
+        "services__apiservice__http__0": "{apiservice.bindings.http.url}",
+        "APISERVICE_HTTPS": "{apiservice.bindings.https.url}",
+        "services__apiservice__https__0": "{apiservice.bindings.https.url}",
+        "IDP_HTTP": "{idp.bindings.http.url}",
+        "services__idp__http__0": "{idp.bindings.http.url}",
+        "Identity__ClientSecret": "some_secret",
+        "ConnectionStrings__cache": "{cache.connectionString}",
+        "CACHE_HOST": "{cache.bindings.tcp.host}",
+        "CACHE_PORT": "{cache.bindings.tcp.port}",
+        "CACHE_PASSWORD": "{cache-password.value}",
+        "CACHE_URI": "redis://:{cache-password-uri-encoded.value}@{cache.bindings.tcp.host}:{cache.bindings.tcp.port}"
+      },
+      "bindings": {
+        "http": {
+          "scheme": "http",
+          "protocol": "tcp",
+          "transport": "http",
+          "external": true
+        },
+        "https": {
+          "scheme": "https",
+          "protocol": "tcp",
+          "transport": "http",
+          "external": true
+        }
+      }
+    },
+    "storage-roles": {
+      "type": "azure.bicep.v0",
+      "path": "storage-roles.module.bicep",
+      "params": {
+        "storage_outputs_name": "{storage.outputs.name}",
+        "principalType": "",
+        "principalId": ""
+      }
+    },
+    "sql-roles": {
+      "type": "azure.bicep.v0",
+      "path": "sql-roles.module.bicep",
+      "params": {
+        "sql_outputs_name": "{sql.outputs.name}",
+        "sql_outputs_sqlserveradminname": "{sql.outputs.sqlServerAdminName}",
+        "principalId": "",
+        "principalName": "",
+        "principalType": ""
+      }
+    },
+    "cache-password": {
+      "type": "parameter.v0",
+      "value": "{cache-password.inputs.value}",
+      "inputs": {
+        "value": {
+          "type": "string",
+          "secret": true,
+          "default": {
+            "generate": {
+              "minLength": 22,
+              "special": false
+            }
+          }
+        }
+      }
+    },
+    "cache-password-uri-encoded": {
+      "type": "annotated.string",
+      "value": "{cache-password.value}",
+      "filter": "uri"
+    },
+    "mongo-password": {
+      "type": "parameter.v0",
+      "value": "{mongo-password.inputs.value}",
+      "inputs": {
+        "value": {
+          "type": "string",
+          "secret": true,
+          "default": {
+            "generate": {
+              "minLength": 22,
+              "special": false
+            }
+          }
+        }
+      }
+    },
+    "mongo-password-uri-encoded": {
+      "type": "annotated.string",
+      "value": "{mongo-password.value}",
+      "filter": "uri"
+    }
+  }
+}
