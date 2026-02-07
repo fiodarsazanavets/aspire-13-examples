@@ -30,3 +30,7 @@ This repository follows the **golden thread** pattern, where we go from the init
 10. [Redis caching and locking](/AppWithRedisCacheAndLock)
 11. [Full authentication integration](/AppWithAuthentication)
 12. [Scale-out and deployment scripts](/AppWithInfrastructure)
+13. [Aspire version upgrade flow](/AspireVersionUpgrade)
+   - [.NET Aspire 8 example](/AspireVersionUpgrade/Aspire8App)
+   - [.NET Aspire 9 example](/AspireVersionUpgrade/Aspire9App)
+   - [Aspire 13 example](/AspireVersionUpgrade/Aspire13App)
