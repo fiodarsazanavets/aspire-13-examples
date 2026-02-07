@@ -1,0 +1,47 @@
+﻿@page "/"
+@using OnlineShop.Web.Dtos
+@attribute [StreamRendering(true)]
+@attribute [OutputCache(Duration = 5)]
+
+@inject ProductsApiClient ProductsApi
+
+<PageTitle>Products</PageTitle>
+
+<h1>Products</h1>
+
+@if (products == null)
+{
+    <p><em>Loading...</em></p>
+}
+else
+{
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Price (USD)</th>
+                <th>Summary</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var product in products)
+            {
+                <tr>
+                    <td>@product.Title</td>
+                    <td>@product.Price</td>
+                    <td>@product.Summary</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    private ProductDto[]? products;
+
+    protected override async Task OnInitializedAsync()
+    {
+        products = await ProductsApi.GetProductsAsync();
+    }
+}
+

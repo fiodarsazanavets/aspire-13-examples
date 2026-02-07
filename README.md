@@ -34,3 +34,6 @@ This repository follows the **golden thread** pattern, where we go from the init
    - [.NET Aspire 8 example](/AspireVersionUpgrade/Aspire8App)
    - [.NET Aspire 9 example](/AspireVersionUpgrade/Aspire9App)
    - [Aspire 13 example](/AspireVersionUpgrade/Aspire13App)
+14. [Aspire orchestrator enrollment](/AspireOrchestratorEnrollment)
+   - [Pre-enrollment setup](/AspireOrchestratorEnrollment/PreEnrollmentApp)
+   - [Post-enrollment setup](/AspireOrchestratorEnrollment/PostEnrollmentApp)
