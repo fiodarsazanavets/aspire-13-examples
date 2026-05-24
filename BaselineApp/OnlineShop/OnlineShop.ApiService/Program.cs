@@ -1,3 +1,5 @@
+using OnlineShop.ServiceDefaults;
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Add service defaults & Aspire client integrations.
