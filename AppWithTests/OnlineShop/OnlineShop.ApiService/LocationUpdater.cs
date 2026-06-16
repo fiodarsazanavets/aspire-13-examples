@@ -10,17 +10,20 @@ public class LocationUpdater(
     ExecuteAsync(
         CancellationToken cancellationToken)
     {
-        await Task.Delay(5000, cancellationToken);
-        await UpdateLocation(
-            51.5074, -0.1276, cancellationToken);
+        while (!cancellationToken.IsCancellationRequested)
+        {
+            await Task.Delay(5000, cancellationToken);
+            await UpdateLocation(
+                51.5074, -0.1276, cancellationToken);
 
-        await Task.Delay(5000, cancellationToken);
-        await UpdateLocation(
-            51.5074, -0.13, cancellationToken);
+            await Task.Delay(5000, cancellationToken);
+            await UpdateLocation(
+                51.5074, -0.13, cancellationToken);
 
-        await Task.Delay(5000, cancellationToken);
-        await UpdateLocation(
-            51.508, -0.14, cancellationToken);
+            await Task.Delay(5000, cancellationToken);
+            await UpdateLocation(
+                51.508, -0.14, cancellationToken);
+        }
     }
 
     private async Task UpdateLocation(
