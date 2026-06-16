@@ -128,10 +128,7 @@ if (app.Environment.IsDevelopment())
 app.MapGet("/", () => "API service is running.");
 
 app.MapGet("/products",
-    ([FromServices] ProductsDbContext context) =>
-    {
-        return context.Products.ToArray();
-    });
+    ([FromServices] ProductsDbContext context) => context.Products.ToArray());
 
 app.MapDefaultEndpoints();
 
