@@ -233,7 +233,7 @@ using (var scope = app.Services.CreateScope())
                 reviews.Add(new ProductReview
                 {
                     UserId = $"user-{Random.Shared.Next(1, 100)}",
-                    Rating = Random.Shared.Next(3, 6), // 3–5
+                    Rating = Random.Shared.Next(3, 6), // 3ï¿½5
                     Comment = "Great product, works exactly as expected.",
                     CreatedAt = DateTime.UtcNow.AddDays(-Random.Shared.Next(1, 30)),
                     VerifiedPurchase = Random.Shared.Next(0, 2) == 1,
@@ -590,8 +590,7 @@ app.MapPost("/api/orders", async (
 
     var message = JsonSerializer.Serialize(new { orderId });
 
-    queueClient.SendMessage(
-       JsonSerializer.Serialize(message));
+    queueClient.SendMessage(message);
 
     return Results.Created($"/api/orders/{orderId}", new
     {
